@@ -1,20 +1,25 @@
 package com.example.mypreloaddata
 
 import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
+import android.os.*
 import androidx.appcompat.app.AppCompatActivity
-import android.os.Bundle
-import android.os.IBinder
-import android.os.Messenger
 import android.util.Log
 import android.widget.Toast
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.mypreloaddata.adapter.MahasiswaAdapter
 import com.example.mypreloaddata.database.MahasiswaHelper
+import com.example.mypreloaddata.service.DataManagerService
+import com.example.mypreloaddata.service.DataManagerService.Companion.CANCEL_MESSAGE
+import com.example.mypreloaddata.service.DataManagerService.Companion.FAILED_MESSAGE
+import com.example.mypreloaddata.service.DataManagerService.Companion.PREPARATION_MESSAGE
+import com.example.mypreloaddata.service.DataManagerService.Companion.SUCCESS_MESSAGE
+import com.example.mypreloaddata.service.DataManagerService.Companion.UPDATE_MESSAGE
 import kotlinx.android.synthetic.main.activity_mahasiswa.*
 import kotlinx.android.synthetic.main.activity_main.*
-import java.lang.Long
+import java.lang.ref.WeakReference
 
 class MainActivity : AppCompatActivity(), HandlerCallback {
 
@@ -38,23 +43,23 @@ class MainActivity : AppCompatActivity(), HandlerCallback {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        recyclerview.layoutManager = LinearLayoutManager(this)
-        val mahasiswaAdapter = MahasiswaAdapter()
-        recyclerview.adapter = mahasiswaAdapter
+        val mBoundServiceIntent = Intent(this@MainActivity, DataManagerService::class.java)
+        val mActivityMessenger = Messenger(IncomingHandler(this))
+        mBoundServiceIntent.putExtra(DataManagerService.ACTIVITY_HANDLER, mActivityMessenger)
 
-        val mahasiswaHelper = MahasiswaHelper(this)
-        mahasiswaHelper.open()
-        val mahasiswaModels = mahasiswaHelper.getAllData()
-        mahasiswaHelper.close()
+        bindService(mBoundServiceIntent, mServiceConnection, Context.BIND_AUTO_CREATE)
+    }
 
-        mahasiswaAdapter.setData(mahasiswaModels)
+    override fun onDestroy() {
+        super.onDestroy()
+        unbindService(mServiceConnection)
     }
 
     override fun onPreparation() {
         Toast.makeText(this, "MEMULAI MEMUAT DATA", Toast.LENGTH_LONG).show()
     }
 
-    override fun updateProgress(progress: Long) {
+    override fun updateProgress(progress: kotlin.Long) {
         Log.d("PROGRESS", "updateProgress: $progress")
         progress_bar.progress = progress.toInt()
     }
@@ -72,12 +77,31 @@ class MainActivity : AppCompatActivity(), HandlerCallback {
     override fun loadCancel() {
         finish()
     }
+
+    private class IncomingHandler(callback: HandlerCallback): Handler() {
+        private var weakCallback: WeakReference<HandlerCallback> = WeakReference(callback)
+
+        override fun handleMessage(msg: Message) {
+            when (msg.what) {
+                PREPARATION_MESSAGE -> weakCallback.get()?.onPreparation()
+                UPDATE_MESSAGE -> {
+                    val bundle = msg.data
+                    val progress = bundle.getLong("KEY_PROGRESS")
+                    weakCallback.get()?.updateProgress(progress)
+                }
+                SUCCESS_MESSAGE -> weakCallback.get()?.loadSuccess()
+                FAILED_MESSAGE -> weakCallback.get()?.loadFailed()
+                CANCEL_MESSAGE -> weakCallback.get()?.loadCancel()
+            }
+            super.handleMessage(msg)
+        }
+    }
 }
 
 private interface HandlerCallback {
     fun onPreparation()
 
-    fun updateProgress(progress: Long)
+    fun updateProgress(progress: kotlin.Long)
 
     fun loadSuccess()
 

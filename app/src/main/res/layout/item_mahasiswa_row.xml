@@ -29,6 +29,6 @@
         android:layout_height="60dp"
         android:layout_centerVertical="true"
         android:padding="8dp"
-        app:srcCompat="@color/teal_200" />
+        app:srcCompat="@color/purple_500" />
 
 </RelativeLayout>

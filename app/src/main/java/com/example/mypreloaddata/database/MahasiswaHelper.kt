@@ -75,6 +75,27 @@ class MahasiswaHelper(context: Context) {
         return arrayList
     }
 
+    fun beginTransaction() {
+        database.beginTransaction()
+    }
+
+    fun setTransactionSuccess() {
+        database.setTransactionSuccessful()
+    }
+
+    fun endTransaction() {
+        database.endTransaction()
+    }
+
+    fun insertTransaction(mahasiswaModel: MahasiswaModel) {
+        val sql = ("INSERT INTO $TABLE_NAME ($NAMA, $NIM) VALUES (?, ?)")
+        val stmt = database.compileStatement(sql)
+        stmt.bindString(1, mahasiswaModel.nama)
+        stmt.bindString(2, mahasiswaModel.nim)
+        stmt.execute()
+        stmt.clearBindings()
+    }
+
     companion object {
         private var INSTANCE: MahasiswaHelper? = null
 
